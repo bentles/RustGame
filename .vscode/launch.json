@@ -1,0 +1,58 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "custom",
+            "name": "Custom launch",
+            "targetCreateCommands": [
+                "target create ${workspaceFolder}/target/debug/begin"
+            ],
+            "processCreateCommands": [
+                "settings set target.run-args value1 value2 value3",
+                "process launch"
+            ]
+        },        
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'begin'",
+            "program": "${workspaceRoot}/target/debug/begin",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=begin",
+                    "--package=begin"
+                ],
+                "filter": {
+                    "name": "begin",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'begin'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=begin",
+                    "--package=begin"
+                ],
+                "filter": {
+                    "name": "begin",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
