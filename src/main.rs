@@ -16,18 +16,26 @@ use noise::{NoiseFn, Perlin};
 struct CustomUV;
 
 // chunk constants
-const X_SIZE: usize = 32;
-const Y_SIZE: usize = 32;
-const Z_SIZE: usize = 32;
-const SIZE: usize = X_SIZE * Y_SIZE * Z_SIZE;
+const SIZE: usize = 10;
+const X_SIZE: usize = SIZE;
+const Y_SIZE: usize = SIZE;
+const Z_SIZE: usize = SIZE;
+
+const TOTAL_SIZE: usize = X_SIZE * Y_SIZE * Z_SIZE;
 const STEP_SIZE: f64 = 0.2;
 
-fn main() {
-    // let s = perlin(0.0,0.0,0.0);
+struct Index3D {
+    x: usize,
+    y: usize,
+    z: usize,
+}
 
-    // for test in s {
-    //     println!("{}", test);
-    // }
+fn main() {
+    let s = perlin(0.0, 0.0, 0.0);
+
+    for test in s {
+        println!("{}", test);
+    }
 
     App::new()
         .add_plugins(DefaultPlugins)
@@ -36,29 +44,28 @@ fn main() {
         .run();
 }
 
-
-fn index(arr: [f64; SIZE], x:usize, y:usize, z:usize) -> f64 {
-    let index: usize = 
-                x + 
-                y * X_SIZE +
-                z * Y_SIZE * X_SIZE;
+fn index(arr: [f64; TOTAL_SIZE], x: usize, y: usize, z: usize) -> f64 {
+    let index: usize = x + y * X_SIZE + z * Y_SIZE * X_SIZE;
     arr[index]
 }
 
-fn perlin(x_offset: f64, y_offset: f64, z_offset: f64) -> [f64; SIZE] {
+fn index_reverse(n: usize) -> Index3D {
+    let x: usize = n % X_SIZE;
+    let y: usize = (n / (X_SIZE)) % Y_SIZE;
+    let z: usize = n / (X_SIZE * Y_SIZE);
+    Index3D { x, y, z }
+}
+
+fn perlin(x_offset: f64, y_offset: f64, z_offset: f64) -> [f64; TOTAL_SIZE] {
     let perlin = Perlin::new(1234);
-    let s: [f64; SIZE] = core::array::from_fn(|n| {
-        let x: usize = n % X_SIZE;
-        let y: usize = (n / (X_SIZE)) % Y_SIZE;
-        let z: usize = n / (X_SIZE * Y_SIZE);
-        let noise_xyz = perlin.get([
-            (x as f64) * STEP_SIZE + x_offset, 
+    core::array::from_fn(|n| {
+        let Index3D { x, y, z } = index_reverse(n);
+        perlin.get([
+            (x as f64) * STEP_SIZE + x_offset,
             (y as f64) * STEP_SIZE + y_offset,
-            (z as f64) * STEP_SIZE + z_offset]
-        );
-        noise_xyz
-    });
-    s
+            (z as f64) * STEP_SIZE + z_offset,
+        ])
+    })
 }
 
 fn setup(
@@ -67,27 +74,37 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // Import the custom texture.
-    let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
-    // Create and save a handle to the mesh.
-    let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh());
+    // Import the custom texture
+    let perlin_chunk = perlin(0.0, 0.0, 0.0);
 
-    // Render the mesh with the custom texture using a PbrBundle, add the marker.
-    commands.spawn((
-        PbrBundle {
-            mesh: cube_mesh_handle,
-            material: materials.add(StandardMaterial {
-                base_color_texture: Some(custom_texture_handle),
-                ..default()
-            }),
-            ..default()
-        },
-        CustomUV,
-    ));
+    for n in 1..TOTAL_SIZE {
+        let Index3D { x, y, z } = index_reverse(n);
+        let val = perlin_chunk[n];
+        //let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
+        // Render the mesh with the custom texture using a PbrBundle, add the marker.
+
+        //if the value is big enough we need a mesh
+        if val > 0.0 {
+            // Create and save a handle to the mesh.
+            let cube_mesh_handle: Handle<Mesh> =
+                meshes.add(create_cube_mesh(x as f32, y as f32, z as f32));
+            commands.spawn((
+                PbrBundle {
+                    mesh: cube_mesh_handle,
+                    material: materials.add(StandardMaterial {
+                        //base_color_texture: Some(custom_texture_handle),
+                        ..default()
+                    }),
+                    ..default()
+                },
+                CustomUV,
+            ));
+        }
+    }
 
     // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
     let camera_and_light_transform =
-        Transform::from_xyz(1.8, 1.8, 1.8).looking_at(Vec3::ZERO, Vec3::Y);
+        Transform::from_xyz(18.0, 18.0, 18.0).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
     commands.spawn(Camera3dBundle {
@@ -95,13 +112,8 @@ fn setup(
         ..default()
     });
 
-    // Light up the scene.
-    commands.spawn(PointLightBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    });
+    // Light up the scene
 
-    // Text to describe the controls.
     commands.spawn(
         TextBundle::from_section(
             "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
@@ -156,7 +168,7 @@ fn input_handler(
 }
 
 #[rustfmt::skip]
-fn create_cube_mesh() -> Mesh {
+fn create_cube_mesh(x: f32, y: f32, z: f32) -> Mesh {
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
     .with_inserted_attribute(
@@ -166,35 +178,35 @@ fn create_cube_mesh() -> Mesh {
         // By centering our mesh around the origin, rotating the mesh preserves its center of mass.
         vec![
             // top (facing towards +y)
-            [-0.5, 0.5, -0.5], // vertex with index 0
-            [0.5, 0.5, -0.5], // vertex with index 1
-            [0.5, 0.5, 0.5], // etc. until 23
-            [-0.5, 0.5, 0.5],
+            [ x + -0.5, y + 0.5, z + -0.5], // vertex with index 0
+            [ x + 0.5, y + 0.5, z + -0.5], // vertex with index 1
+            [ x + 0.5, y + 0.5, z + 0.5], // etc. until 23
+            [ x + -0.5, y + 0.5, z + 0.5],
             // bottom   (-y)
-            [-0.5, -0.5, -0.5],
-            [0.5, -0.5, -0.5],
-            [0.5, -0.5, 0.5],
-            [-0.5, -0.5, 0.5],
+            [ x + -0.5, y + -0.5, z + -0.5],
+            [ x + 0.5, y + -0.5, z + -0.5],
+            [ x + 0.5, y + -0.5, z + 0.5],
+            [ x + -0.5, y + -0.5, z + 0.5],
             // right    (+x)
-            [0.5, -0.5, -0.5],
-            [0.5, -0.5, 0.5],
-            [0.5, 0.5, 0.5], // This vertex is at the same position as vertex with index 2, but they'll have different UV and normal
-            [0.5, 0.5, -0.5],
+            [ x + 0.5, y + -0.5, z + -0.5],
+            [ x + 0.5, y + -0.5, z + 0.5],
+            [ x + 0.5, y + 0.5, z + 0.5], // This vertex is at the same position as vertex with index 2, but they'll have different UV and normal
+            [ x + 0.5, y + 0.5, z + -0.5],
             // left     (-x)
-            [-0.5, -0.5, -0.5],
-            [-0.5, -0.5, 0.5],
-            [-0.5, 0.5, 0.5],
-            [-0.5, 0.5, -0.5],
+            [ x + -0.5, y + -0.5, z + -0.5],
+            [ x + -0.5, y + -0.5, z + 0.5],
+            [ x + -0.5, y + 0.5, z + 0.5],
+            [ x + -0.5, y + 0.5, z + -0.5],
             // back     (+z)
-            [-0.5, -0.5, 0.5],
-            [-0.5, 0.5, 0.5],
-            [0.5, 0.5, 0.5],
-            [0.5, -0.5, 0.5],
+            [ x + -0.5, y + -0.5, z + 0.5],
+            [ x + -0.5, y + 0.5, z + 0.5],
+            [ x + 0.5, y + 0.5, z + 0.5],
+            [ x + 0.5, y + -0.5, z + 0.5],
             // forward  (-z)
-            [-0.5, -0.5, -0.5],
-            [-0.5, 0.5, -0.5],
-            [0.5, 0.5, -0.5],
-            [0.5, -0.5, -0.5],
+            [ x + -0.5, y + -0.5, z + -0.5],
+            [ x + -0.5, y + 0.5, z + -0.5],
+            [ x + 0.5, y + 0.5, z + -0.5],
+            [ x + 0.5, y + -0.5, z + -0.5],
         ],
     )
     // Set-up UV coordinates to point to the upper (V < 0.5), "dirt+grass" part of the texture.
@@ -213,7 +225,7 @@ fn create_cube_mesh() -> Mesh {
             // Assigning the UV coords for the left side.
             [1.0, 0.45], [0.0, 0.45], [0.0, 0.2], [1.0, 0.2],
             // Assigning the UV coords for the back side.
-            [0.0, 0.45], [0.0, 0.2], [1.0, 0.2], [1.0, 0.45],
+            [0.0, 0.45], [0.0, 0.3], [1.0, 0.3], [1.0, 0.45],
             // Assigning the UV coords for the forward side.
             [0.0, 0.45], [0.0, 0.2], [1.0, 0.2], [1.0, 0.45],
         ],
@@ -286,7 +298,7 @@ fn toggle_texture(mesh_to_change: &mut Mesh) {
     // Iterate over the UV coordinates, and change them as we want.
     for uv_coord in uv_attribute.iter_mut() {
         // If the UV coordinate points to the upper, "dirt+grass" part of the texture...
-        if (uv_coord[1] + 0.5) < 1.0 {
+        if uv_coord[1] <= 0.5 {
             // ... point to the equivalent lower, "sand+water" part instead,
             uv_coord[1] += 0.5;
         } else {
