@@ -8,8 +8,8 @@ use bevy::render::{
     render_asset::RenderAssetUsages,
     render_resource::PrimitiveTopology,
 };
+use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
-use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
 
 // chunk constants
 const SIZE: usize = 10;
@@ -43,7 +43,7 @@ fn main() {
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
       //  .add_systems(Update, input_handler)
-        .add_plugin(FlyCameraPlugin)
+        .add_plugins(PlayerPlugin)
         .run();
 }
 
@@ -133,10 +133,10 @@ fn setup(
         Transform::from_xyz(18.0, 18.0, 18.0).looking_at(Vec3::ZERO, Vec3::Y);
 
     // Camera in 3D space.
-    commands.spawn(Camera3dBundle {
-        transform: camera_and_light_transform,
-        ..default()
-    }).with(FlyCamera::default());
+    //commands.spawn(Camera3dBundle {
+    //    transform: camera_and_light_transform,
+    //    ..default()
+    //}).with(FlyCamera::default());
 
     // Light up the scene
 
