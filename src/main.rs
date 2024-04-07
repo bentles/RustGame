@@ -9,11 +9,7 @@ use bevy::render::{
     render_resource::PrimitiveTopology,
 };
 use noise::{NoiseFn, Perlin};
-
-// Define a "marker" component to mark the custom mesh. Marker components are often used in Bevy for
-// filtering entities in queries with With, they're usually not queried directly since they don't contain information within them.
-#[derive(Component)]
-struct CustomUV;
+use bevy_fly_camera::{FlyCamera, FlyCameraPlugin};
 
 // chunk constants
 const SIZE: usize = 10;
@@ -22,13 +18,19 @@ const Y_SIZE: usize = SIZE;
 const Z_SIZE: usize = SIZE;
 
 const TOTAL_SIZE: usize = X_SIZE * Y_SIZE * Z_SIZE;
-const STEP_SIZE: f64 = 0.2;
+const PERLIN_SAMPLE_SIZE: f32 = 0.1;
 
+const BLOCK_SIZE: f32 = 1.0;
+
+#[derive(Clone)]
 struct Index3D {
     x: usize,
     y: usize,
     z: usize,
 }
+
+#[derive(Component, Clone)]
+struct Chunk(Index3D);
 
 fn main() {
     let s = perlin(0.0, 0.0, 0.0);
@@ -40,7 +42,8 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, input_handler)
+      //  .add_systems(Update, input_handler)
+        .add_plugin(FlyCameraPlugin)
         .run();
 }
 
@@ -56,14 +59,14 @@ fn index_reverse(n: usize) -> Index3D {
     Index3D { x, y, z }
 }
 
-fn perlin(x_offset: f64, y_offset: f64, z_offset: f64) -> [f64; TOTAL_SIZE] {
+fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] {
     let perlin = Perlin::new(1234);
     core::array::from_fn(|n| {
         let Index3D { x, y, z } = index_reverse(n);
         perlin.get([
-            (x as f64) * STEP_SIZE + x_offset,
-            (y as f64) * STEP_SIZE + y_offset,
-            (z as f64) * STEP_SIZE + z_offset,
+            ((x as f32) * PERLIN_SAMPLE_SIZE + x_offset) as f64,
+            ((y as f32) * PERLIN_SAMPLE_SIZE + y_offset) as f64,
+            ((z as f32) * PERLIN_SAMPLE_SIZE + z_offset) as f64,
         ])
     })
 }
@@ -74,31 +77,54 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // Import the custom texture
-    let perlin_chunk = perlin(0.0, 0.0, 0.0);
+    for xi in 0..2 {
+        for yi in 0..2 {
+            for zi in 0..2 {
+                let chunk = Chunk(Index3D {
+                    x: xi,
+                    y: yi,
+                    z: zi,
+                });
 
-    for n in 1..TOTAL_SIZE {
-        let Index3D { x, y, z } = index_reverse(n);
-        let val = perlin_chunk[n];
-        //let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
-        // Render the mesh with the custom texture using a PbrBundle, add the marker.
+                let x_offset = (chunk.0.x * X_SIZE) as f32;
+                let y_offset = (chunk.0.y * Y_SIZE) as f32;
+                let z_offset = (chunk.0.z * Z_SIZE) as f32;
+                // Import the custom texture
+                let perlin_chunk = perlin(
+                    x_offset * PERLIN_SAMPLE_SIZE,
+                    y_offset * PERLIN_SAMPLE_SIZE,
+                    z_offset * PERLIN_SAMPLE_SIZE,
+                );
 
-        //if the value is big enough we need a mesh
-        if val > 0.0 {
-            // Create and save a handle to the mesh.
-            let cube_mesh_handle: Handle<Mesh> =
-                meshes.add(create_cube_mesh(x as f32, y as f32, z as f32));
-            commands.spawn((
-                PbrBundle {
-                    mesh: cube_mesh_handle,
-                    material: materials.add(StandardMaterial {
-                        //base_color_texture: Some(custom_texture_handle),
-                        ..default()
-                    }),
-                    ..default()
-                },
-                CustomUV,
-            ));
+                for n in 1..TOTAL_SIZE {
+                    let Index3D { x, y, z } = index_reverse(n);
+                    let val = perlin_chunk[n];
+                    //let custom_texture_handle: Handle<Image> = asset_server.load("textures/array_texture.png");
+                    // Render the mesh with the custom texture using a PbrBundle, add the marker.
+
+                    //if the value is big enough we need a mesh
+                    if val > 0.0 {
+                        // Create and save a handle to the mesh.
+                        let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh(
+                            x as f32 + x_offset as f32 * BLOCK_SIZE,
+                            y as f32 + y_offset as f32 * BLOCK_SIZE,
+                            z as f32 + z_offset as f32 * BLOCK_SIZE,
+                        ));
+                        commands.spawn((
+                            PbrBundle {
+                                mesh: cube_mesh_handle,
+                                material: materials.add(StandardMaterial {
+                                    //base_color_texture: Some(custom_texture_handle),
+                                    base_color: if xi % 2 == 0 { Color::RED } else { Color::BLUE },
+                                    ..default()
+                                }),
+                                ..default()
+                            },
+                            chunk.clone(),
+                        ));
+                    }
+                }
+            }
         }
     }
 
@@ -110,7 +136,7 @@ fn setup(
     commands.spawn(Camera3dBundle {
         transform: camera_and_light_transform,
         ..default()
-    });
+    }).with(FlyCamera::default());
 
     // Light up the scene
 
@@ -135,36 +161,36 @@ fn setup(
 // check out examples/input/ for more examples about user input.
 fn input_handler(
     keyboard_input: Res<ButtonInput<KeyCode>>,
-    mesh_query: Query<&Handle<Mesh>, With<CustomUV>>,
+    mesh_query: Query<&Handle<Mesh>, With<Chunk>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut query: Query<&mut Transform, With<CustomUV>>,
+    mut query: Query<&mut Transform, With<Chunk>>,
     time: Res<Time>,
 ) {
-    if keyboard_input.just_pressed(KeyCode::Space) {
-        let mesh_handle = mesh_query.get_single().expect("Query not successful");
-        let mesh = meshes.get_mut(mesh_handle).unwrap();
-        toggle_texture(mesh);
-    }
-    if keyboard_input.pressed(KeyCode::KeyX) {
-        for mut transform in &mut query {
-            transform.rotate_x(time.delta_seconds() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyY) {
-        for mut transform in &mut query {
-            transform.rotate_y(time.delta_seconds() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyZ) {
-        for mut transform in &mut query {
-            transform.rotate_z(time.delta_seconds() / 1.2);
-        }
-    }
-    if keyboard_input.pressed(KeyCode::KeyR) {
-        for mut transform in &mut query {
-            transform.look_to(Vec3::NEG_Z, Vec3::Y);
-        }
-    }
+    // if keyboard_input.just_pressed(KeyCode::Space) {
+    //     // let mesh_handle = mesh_query.get_single().expect("Query not successful");
+    //     // let mesh = meshes.get_mut(mesh_handle).unwrap();
+    //     // toggle_texture(mesh);
+    // }
+    // if keyboard_input.pressed(KeyCode::KeyX) {
+    //     for mut transform in &mut query {
+    //         transform.rotate_x(time.delta_seconds() / 1.2);
+    //     }
+    // }
+    // if keyboard_input.pressed(KeyCode::KeyY) {
+    //     for mut transform in &mut query {
+    //         transform.rotate_y(time.delta_seconds() / 1.2);
+    //     }
+    // }
+    // if keyboard_input.pressed(KeyCode::KeyZ) {
+    //     for mut transform in &mut query {
+    //         transform.rotate_z(time.delta_seconds() / 1.2);
+    //     }
+    // }
+    // if keyboard_input.pressed(KeyCode::KeyR) {
+    //     for mut transform in &mut query {
+    //         transform.look_to(Vec3::NEG_Z, Vec3::Y);
+    //     }
+    // }
 }
 
 #[rustfmt::skip]
