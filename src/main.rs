@@ -11,8 +11,8 @@ use bevy::render::{
 use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
 
-// chunk constants
-const SIZE: usize = 10;
+const CHUNK_DIM: usize = 10;// chunk constants
+const SIZE: usize = 4;
 const X_SIZE: usize = SIZE;
 const Y_SIZE: usize = SIZE;
 const Z_SIZE: usize = SIZE;
@@ -36,6 +36,13 @@ fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
+        .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
+            // ambient light
+        // .insert_resource(AmbientLight {
+        //     color: Color::ORANGE_RED,
+        //     brightness: 0.02,
+        // })
+
         .add_plugins(PlayerPlugin)
         .run();
 }
@@ -70,9 +77,9 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for xi in 0..2 {
-        for yi in 0..2 {
-            for zi in 0..2 {
+    for xi in 0..CHUNK_DIM {
+        for yi in 0..CHUNK_DIM {
+            for zi in 0..CHUNK_DIM {
                 let chunk = Chunk(Index3D {
                     x: xi,
                     y: yi,
@@ -102,6 +109,7 @@ fn setup(
                             x as f32 + x_offset as f32 * BLOCK_SIZE,
                             y as f32 + y_offset as f32 * BLOCK_SIZE,
                             z as f32 + z_offset as f32 * BLOCK_SIZE,
+                            BLOCK_SIZE
                         ));
                         commands.spawn((
                             PbrBundle {
@@ -121,18 +129,6 @@ fn setup(
         }
     }
 
-    // Transform for the camera and lighting, looking at (0,0,0) (the position of the mesh).
-    let camera_and_light_transform =
-        Transform::from_xyz(18.0, 18.0, 18.0).looking_at(Vec3::ZERO, Vec3::Y);
-
-    // Camera in 3D space.
-    //commands.spawn(Camera3dBundle {
-    //    transform: camera_and_light_transform,
-    //    ..default()
-    //}).with(FlyCamera::default());
-
-    // Light up the scene
-
     commands.spawn(
         TextBundle::from_section(
             "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
@@ -151,7 +147,8 @@ fn setup(
 }
 
 #[rustfmt::skip]
-fn create_cube_mesh(x: f32, y: f32, z: f32) -> Mesh {
+fn create_cube_mesh(x: f32, y: f32, z: f32, size: f32) -> Mesh {
+    let size = size / 2.0;
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
     Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
     .with_inserted_attribute(
@@ -161,56 +158,35 @@ fn create_cube_mesh(x: f32, y: f32, z: f32) -> Mesh {
         // By centering our mesh around the origin, rotating the mesh preserves its center of mass.
         vec![
             // top (facing towards +y)
-            [ x + -0.5, y + 0.5, z + -0.5], // vertex with index 0
-            [ x + 0.5, y + 0.5, z + -0.5], // vertex with index 1
-            [ x + 0.5, y + 0.5, z + 0.5], // etc. until 23
-            [ x + -0.5, y + 0.5, z + 0.5],
+            [ x + -size, y + size, z + -size], // vertex with index 0
+            [ x + size, y + size, z + -size], // vertex with index 1
+            [ x + size, y + size, z + size], // etc. until 23
+            [ x + -size, y + size, z + size],
             // bottom   (-y)
-            [ x + -0.5, y + -0.5, z + -0.5],
-            [ x + 0.5, y + -0.5, z + -0.5],
-            [ x + 0.5, y + -0.5, z + 0.5],
-            [ x + -0.5, y + -0.5, z + 0.5],
+            [ x + -size, y + -size, z + -size],
+            [ x + size, y + -size, z + -size],
+            [ x + size, y + -size, z + size],
+            [ x + -size, y + -size, z + size],
             // right    (+x)
-            [ x + 0.5, y + -0.5, z + -0.5],
-            [ x + 0.5, y + -0.5, z + 0.5],
-            [ x + 0.5, y + 0.5, z + 0.5], // This vertex is at the same position as vertex with index 2, but they'll have different UV and normal
-            [ x + 0.5, y + 0.5, z + -0.5],
+            [ x + size, y + -size, z + -size],
+            [ x + size, y + -size, z + size],
+            [ x + size, y + size, z + size], // This vertex is at the same position as vertex with index 2, but they'll have different UV and normal
+            [ x + size, y + size, z + -size],
             // left     (-x)
-            [ x + -0.5, y + -0.5, z + -0.5],
-            [ x + -0.5, y + -0.5, z + 0.5],
-            [ x + -0.5, y + 0.5, z + 0.5],
-            [ x + -0.5, y + 0.5, z + -0.5],
+            [ x + -size, y + -size, z + -size],
+            [ x + -size, y + -size, z + size],
+            [ x + -size, y + size, z + size],
+            [ x + -size, y + size, z + -size],
             // back     (+z)
-            [ x + -0.5, y + -0.5, z + 0.5],
-            [ x + -0.5, y + 0.5, z + 0.5],
-            [ x + 0.5, y + 0.5, z + 0.5],
-            [ x + 0.5, y + -0.5, z + 0.5],
+            [ x + -size, y + -size, z + size],
+            [ x + -size, y + size, z + size],
+            [ x + size, y + size, z + size],
+            [ x + size, y + -size, z + size],
             // forward  (-z)
-            [ x + -0.5, y + -0.5, z + -0.5],
-            [ x + -0.5, y + 0.5, z + -0.5],
-            [ x + 0.5, y + 0.5, z + -0.5],
-            [ x + 0.5, y + -0.5, z + -0.5],
-        ],
-    )
-    // Set-up UV coordinates to point to the upper (V < 0.5), "dirt+grass" part of the texture.
-    // Take a look at the custom image (assets/textures/array_texture.png)
-    // so the UV coords will make more sense
-    // Note: (0.0, 0.0) = Top-Left in UV mapping, (1.0, 1.0) = Bottom-Right in UV mapping
-    .with_inserted_attribute(
-        Mesh::ATTRIBUTE_UV_0,
-        vec![
-            // Assigning the UV coords for the top side.
-            [0.0, 0.2], [0.0, 0.0], [1.0, 0.0], [1.0, 0.25],
-            // Assigning the UV coords for the bottom side.
-            [0.0, 0.45], [0.0, 0.25], [1.0, 0.25], [1.0, 0.45],
-            // Assigning the UV coords for the right side.
-            [1.0, 0.45], [0.0, 0.45], [0.0, 0.2], [1.0, 0.2],
-            // Assigning the UV coords for the left side.
-            [1.0, 0.45], [0.0, 0.45], [0.0, 0.2], [1.0, 0.2],
-            // Assigning the UV coords for the back side.
-            [0.0, 0.45], [0.0, 0.3], [1.0, 0.3], [1.0, 0.45],
-            // Assigning the UV coords for the forward side.
-            [0.0, 0.45], [0.0, 0.2], [1.0, 0.2], [1.0, 0.45],
+            [ x + -size, y + -size, z + -size],
+            [ x + -size, y + size, z + -size],
+            [ x + size, y + size, z + -size],
+            [ x + size, y + -size, z + -size],
         ],
     )
     // For meshes with flat shading, normals are orthogonal (pointing out) from the direction of
@@ -267,26 +243,4 @@ fn create_cube_mesh(x: f32, y: f32, z: f32) -> Mesh {
         16,19,17 , 17,19,18, // back (+z)
         20,21,23 , 21,22,23, // forward (-z)
     ]))
-}
-
-// Function that changes the UV mapping of the mesh, to apply the other texture.
-fn toggle_texture(mesh_to_change: &mut Mesh) {
-    // Get a mutable reference to the values of the UV attribute, so we can iterate over it.
-    let uv_attribute = mesh_to_change.attribute_mut(Mesh::ATTRIBUTE_UV_0).unwrap();
-    // The format of the UV coordinates should be Float32x2.
-    let VertexAttributeValues::Float32x2(uv_attribute) = uv_attribute else {
-        panic!("Unexpected vertex format, expected Float32x2.");
-    };
-
-    // Iterate over the UV coordinates, and change them as we want.
-    for uv_coord in uv_attribute.iter_mut() {
-        // If the UV coordinate points to the upper, "dirt+grass" part of the texture...
-        if uv_coord[1] <= 0.5 {
-            // ... point to the equivalent lower, "sand+water" part instead,
-            uv_coord[1] += 0.5;
-        } else {
-            // else, point back to the upper, "dirt+grass" part.
-            uv_coord[1] -= 0.5;
-        }
-    }
 }
