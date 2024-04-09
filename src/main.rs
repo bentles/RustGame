@@ -105,7 +105,7 @@ fn setup(
                     //if the value is big enough we need a mesh
                     if val > 0.0 {
                         // Create and save a handle to the mesh.
-                        let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh(
+                        let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_side(       
                             x as f32 + x_offset as f32 * BLOCK_SIZE,
                             y as f32 + y_offset as f32 * BLOCK_SIZE,
                             z as f32 + z_offset as f32 * BLOCK_SIZE,
@@ -144,6 +144,187 @@ fn setup(
             ..default()
         }),
     );
+}
+
+struct MeshSide {
+    vertices: Vec<[f32; 3]>,
+    normals: Vec<[f32; 3]>,
+    indices: Vec<u32>
+}
+
+fn top_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+    let mesh: Vec<[f32; 3]> = vec![
+        // top (facing towards +y)
+        [ x + -size, y + size, z + -size], // vertex with index 0
+        [ x + size, y + size, z + -size], // vertex with index 1
+        [ x + size, y + size, z + size], // etc. until 23
+        [ x + -size, y + size, z + size],
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+            // Normals for the top side (towards +y)
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+            [0.0, 1.0, 0.0],
+    ];
+
+    let indices: Vec<u32> = vec![
+        0,3,1 , 1,3,2,
+    ];
+
+    return MeshSide {
+        vertices: mesh,
+        normals,
+        indices
+    }
+}
+
+fn bottom_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+    let mesh: Vec<[f32; 3]> = vec![
+        [ x + -size, y + -size, z + -size],
+        [ x + size, y + -size, z + -size],
+        [ x + size, y + -size, z + size],
+        [ x + -size, y + -size, z + size],
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+        [0.0, -1.0, 0.0],
+        [0.0, -1.0, 0.0],
+        [0.0, -1.0, 0.0],
+        [0.0, -1.0, 0.0],
+    ];
+
+    let indices: Vec<u32> = vec![
+        0,1,3 , 1,2,3,
+    ];
+
+    return MeshSide {
+        vertices: mesh,
+        normals,
+        indices
+    }
+}
+
+fn right_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+    let mesh: Vec<[f32; 3]> = vec![
+        [ x + size, y + -size, z + -size],
+        [ x + size, y + -size, z + size],
+        [ x + size, y + size, z + size], // This vertex is at the same position as vertex with index 2, but they'll have different UV and normal
+        [ x + size, y + size, z + -size],
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+    ];
+
+    let indices: Vec<u32> = vec![
+        0,3,1 , 1,3,2,
+    ];
+
+    return MeshSide {
+        vertices: mesh,
+        normals,
+        indices
+    }
+}
+
+fn left_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+    let mesh: Vec<[f32; 3]> = vec![
+        [ x + -size, y + -size, z + -size],
+        [ x + -size, y + -size, z + size],
+        [ x + -size, y + size, z + size],
+        [ x + -size, y + size, z + -size],
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+        [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+        [-1.0, 0.0, 0.0],
+    ];
+
+    let indices: Vec<u32> = vec![
+        0,1,3 , 1,2,3, 
+    ];
+
+    return MeshSide {
+        vertices: mesh,
+        normals,
+        indices
+    }
+}
+
+fn back_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+    let mesh: Vec<[f32; 3]> = vec![
+        [ x + -size, y + -size, z + size],
+        [ x + -size, y + size, z + size],
+        [ x + size, y + size, z + size],
+        [ x + size, y + -size, z + size],
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0],
+        [0.0, 0.0, 1.0],
+    ];
+
+    let indices: Vec<u32> = vec![
+        0,3,1 , 1,3,2,
+    ];
+
+    return MeshSide {
+        vertices: mesh,
+        normals,
+        indices
+    }
+}
+
+fn front_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+    let mesh: Vec<[f32; 3]> = vec![
+        [ x + -size, y + -size, z + -size],
+        [ x + -size, y + size, z + -size],
+        [ x + size, y + size, z + -size],
+        [ x + size, y + -size, z + -size],
+    ];
+
+    let normals: Vec<[f32; 3]> = vec![
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0],
+        [0.0, 0.0, -1.0],
+    ];
+
+    let indices: Vec<u32> = vec![
+        0,1,3 , 1,2,3,
+    ];
+
+    return MeshSide {
+        vertices: mesh,
+        normals,
+        indices
+    }
+}
+
+
+fn create_cube_side(x: f32, y: f32, z: f32, size: f32) -> Mesh {
+    let size = size / 2.0;
+    let MeshSide { vertices: mesh, normals, indices } = left_side(x, y, z, size);
+
+    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+    .with_inserted_attribute(
+        Mesh::ATTRIBUTE_POSITION,
+        mesh
+    )
+    .with_inserted_attribute(
+        Mesh::ATTRIBUTE_NORMAL,
+        normals,
+    )
+    .with_inserted_indices(Indices::U32(indices))
 }
 
 #[rustfmt::skip]
