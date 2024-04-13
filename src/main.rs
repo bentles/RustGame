@@ -11,7 +11,7 @@ use bevy::render::{
 use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
 
-const CHUNK_DIM: usize = 10;// chunk constants
+const CHUNK_DIM: usize = 20;// chunk constants
 const SIZE: usize = 4;
 const X_SIZE: usize = SIZE;
 const Y_SIZE: usize = SIZE;
@@ -103,20 +103,20 @@ fn setup(
                     // Render the mesh with the custom texture using a PbrBundle, add the marker.
 
                     //if the value is big enough we need a mesh
-                    if val > 0.0 {
+                    if val > 0.5 {
                         // Create and save a handle to the mesh.
-                        let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_side(       
+                        let cube_mesh_handle: Handle<Mesh> = meshes.add(create_cube_mesh(       
                             x as f32 + x_offset as f32 * BLOCK_SIZE,
                             y as f32 + y_offset as f32 * BLOCK_SIZE,
                             z as f32 + z_offset as f32 * BLOCK_SIZE,
                             BLOCK_SIZE
-                        ));
+                           ));
                         commands.spawn((
                             PbrBundle {
                                 mesh: cube_mesh_handle,
                                 material: materials.add(StandardMaterial {
                                     //base_color_texture: Some(custom_texture_handle),
-                                    base_color: if xi % 2 == 0 { Color::RED } else { Color::BLUE },
+                                    base_color: if yi % 2 == 0 { Color::RED } else { Color::BLUE },
                                     ..default()
                                 }),
                                 ..default()
@@ -131,7 +131,7 @@ fn setup(
 
     commands.spawn(
         TextBundle::from_section(
-            "Controls:\nSpace: Change UVs\nX/Y/Z: Rotate\nR: Reset orientation",
+            "Controls:\nMouse: Move camera\nWASD: Move player\nShift: Go down\nSpace: Go up",
             TextStyle {
                 font_size: 20.0,
                 ..default()
