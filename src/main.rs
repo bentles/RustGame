@@ -12,13 +12,18 @@ use bevy::render::{
 use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
 
-const CHUNKS_PER_AXIS: usize = 1; // chunk constants
-const SIZE: usize = 4;
+const CHUNKS_PER_AXIS: usize = 4; // chunk constants
+const SIZE: usize = 16;
 const X_SIZE: usize = SIZE;
 const Y_SIZE: usize = SIZE;
 const Z_SIZE: usize = SIZE;
 
+const LAST_X: usize = X_SIZE - 1;
+const LAST_Y: usize = Y_SIZE - 1;
+const LAST_Z: usize = Z_SIZE - 1;
+
 const TOTAL_SIZE: usize = X_SIZE * Y_SIZE * Z_SIZE;
+const LAST_XYZ: usize =  TOTAL_SIZE - 1;
 const PERLIN_SAMPLE_SIZE: f32 = 0.1;
 
 const BLOCK_SIZE: f32 = 1.0;
@@ -37,7 +42,7 @@ struct Index3D {
 // }
 
 #[derive(Component, Clone)]
-struct Chunk(Index3D);
+struct ChunkIndex(Index3D);
 
 fn main() {
     App::new()
@@ -49,16 +54,28 @@ fn main() {
         .run();
 }
 
-fn index(arr: [f64; TOTAL_SIZE], x: usize, y: usize, z: usize) -> f64 {
-    let index: usize = x + y * X_SIZE + z * Y_SIZE * X_SIZE;
-    arr[index]
+fn to_1d(x: usize, y: usize, z: usize) -> usize {
+    x + y * X_SIZE + z * Y_SIZE * X_SIZE
 }
 
-fn index_reverse(n: usize) -> Index3D {
+fn index(arr: [f64; TOTAL_SIZE], x: usize, y: usize, z: usize) -> f64 {
+    arr[to_1d(x, y, z)]
+}
+
+fn to_3d(n: usize) -> (usize, usize, usize) {
     let x: usize = n % X_SIZE;
     let y: usize = (n / (X_SIZE)) % Y_SIZE;
     let z: usize = n / (X_SIZE * Y_SIZE);
-    Index3D { x, y, z }
+    (x, y, z)
+}
+
+fn index_reverse(n: usize) -> Index3D {
+    let index = to_3d(n);
+    Index3D {
+        x: index.0,
+        y: index.1,
+        z: index.2,
+    }
 }
 
 fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] {
@@ -73,16 +90,66 @@ fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] {
     })
 }
 
+struct BlockData {
+    visible_faces: Option<VisibleFaces>,
+    is_solid: bool, //I guess this can later be a block type
+}
+
+const EMPTY_BLOCK: BlockData = BlockData {
+    visible_faces: None,
+    is_solid: false,
+};
+
+struct VisibleFaces {
+    top: bool,
+    bottom: bool,
+    left: bool,
+    right: bool,
+    front: bool,
+    back: bool,
+}
+
+fn is_solid(x: f64) -> bool {
+    x > 0.5
+}
+
+fn block_data_from_perlin(chunk: [f64; TOTAL_SIZE]) -> [BlockData; TOTAL_SIZE] {
+    let mut output = [EMPTY_BLOCK; TOTAL_SIZE];
+
+    for x in 0..(LAST_X) {
+        for y in 0..(LAST_Y) {
+            for z in 0..(LAST_Z) {
+                let i = to_1d(x, y, z);
+                let perlin_val = chunk[i];
+                if !is_solid(perlin_val) {
+                    continue;
+                }
+
+                let faces = VisibleFaces {
+                    right: (x == LAST_X) || !is_solid(index(chunk, x + 1, y, z)),
+                    left: (x == 0) || !is_solid(index(chunk, x - 1, y, z)),
+                    top: (y == LAST_Y) || !is_solid(index(chunk, x, y + 1, z)),
+                    bottom: (y == 0) || !is_solid(index(chunk, x, y - 1, z)),                    
+                    back: (z == LAST_Z) || !is_solid(index(chunk, x, y, z + 1)),
+                    front: (z == 0) || !is_solid(index(chunk, x, y, z - 1)),                    
+                };
+
+                output[i].visible_faces = Some(faces);
+            }
+        }
+    }
+    output
+}
+
 fn setup(
     mut commands: Commands,
-    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for chunk_x in 0..CHUNKS_PER_AXIS {
         for chunk_y in 0..CHUNKS_PER_AXIS {
             for chunk_z in 0..CHUNKS_PER_AXIS {
-                let chunk = Chunk(Index3D {
+                let chunk = ChunkIndex(Index3D {
                     x: chunk_x,
                     y: chunk_y,
                     z: chunk_z,
@@ -97,37 +164,41 @@ fn setup(
                     y_chunk_offset * PERLIN_SAMPLE_SIZE,
                     z_chunk_offset * PERLIN_SAMPLE_SIZE,
                 );
+                let block_data = block_data_from_perlin(perlin_chunk);
 
-                for n in 0..(TOTAL_SIZE - 1) {
-                    let Index3D { x: x_block, y: y_block, z: z_block } = index_reverse(n);
-                    let val = perlin_chunk[n];
+                for n in 0..(LAST_XYZ) {
+                    let Index3D {
+                        x: x_block,
+                        y: y_block,
+                        z: z_block,
+                    } = index_reverse(n);                
 
-                    //if the value is big enough we need a mesh
-                    if val > -1.0 {
-                        let cube_sides = create_cube_sides(
-                            x_block as f32 + x_chunk_offset as f32 * BLOCK_SIZE,
-                            y_block as f32 + y_chunk_offset as f32 * BLOCK_SIZE,
-                            z_block as f32 + z_chunk_offset as f32 * BLOCK_SIZE,
-                            BLOCK_SIZE,
-                        );
+                    let cube_sides = create_cube_sides(
+                        x_block as f32 + x_chunk_offset as f32 * BLOCK_SIZE,
+                        y_block as f32 + y_chunk_offset as f32 * BLOCK_SIZE,
+                        z_block as f32 + z_chunk_offset as f32 * BLOCK_SIZE,
+                        BLOCK_SIZE, 
+                        &block_data[n]
+                    );
 
-                        for side in cube_sides {
-                            // Create and save a handle to the mesh.
-                            let side_mesh_handle: Handle<Mesh> = meshes.add(side);
-                            commands.spawn((
-                                PbrBundle {
-                                    mesh: side_mesh_handle,
-                                    material: materials.add(StandardMaterial {
-                                        //base_color_texture: Some(custom_texture_handle),
-                                        base_color: Color::rgb(n as f32, n as f32, n as f32), // if chunk_y % 2 == 0 { Color::RED } else { Color::BLUE },
-                                        ..default()
-                                    }),
+                    for side in cube_sides {
+                        // Create and save a handle to the mesh.
+                        let side_mesh_handle: Handle<Mesh> = meshes.add(side);
+                        let clr = n as f32 / (LAST_XYZ as f32);
+                        commands.spawn((
+                            PbrBundle {
+                                mesh: side_mesh_handle,
+                                material: materials.add(StandardMaterial {
+                                    //base_color_texture: Some(custom_texture_handle),
+                                    base_color: Color::rgb(clr, clr, clr), // if chunk_y % 2 == 0 { Color::RED } else { Color::BLUE },
                                     ..default()
-                                },
-                                chunk.clone(),
-                            ));
-                        }
+                                }),
+                                ..default()
+                            },
+                            chunk.clone(),
+                        ));
                     }
+                    
                 }
             }
         }
@@ -160,11 +231,11 @@ fn top_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     let up = Vec3::Y.to_array();
     return MeshSide {
         vertices: vec![
-        [x + -size, y + size, z + -size],
-        [x + size, y + size, z + -size],
-        [x + size, y + size, z + size],
-        [x + -size, y + size, z + size],
-    ],
+            [x + -size, y + size, z + -size],
+            [x + size, y + size, z + -size],
+            [x + size, y + size, z + size],
+            [x + -size, y + size, z + size],
+        ],
         normals: vec![up, up, up, up],
         indices: vec![0, 3, 1, 1, 3, 2],
     };
@@ -174,11 +245,11 @@ fn bottom_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     let down = Vec3::NEG_Y.to_array();
     return MeshSide {
         vertices: vec![
-        [x + -size, y + -size, z + -size],
-        [x + size, y + -size, z + -size],
-        [x + size, y + -size, z + size],
-        [x + -size, y + -size, z + size],
-    ],
+            [x + -size, y + -size, z + -size],
+            [x + size, y + -size, z + -size],
+            [x + size, y + -size, z + size],
+            [x + -size, y + -size, z + size],
+        ],
         normals: vec![down, down, down, down],
         indices: vec![0, 1, 3, 1, 2, 3],
     };
@@ -188,11 +259,11 @@ fn right_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     let right = Vec3::X.to_array();
     return MeshSide {
         vertices: vec![
-        [x + size, y + -size, z + -size],
-        [x + size, y + -size, z + size],
-        [x + size, y + size, z + size],
-        [x + size, y + size, z + -size],
-    ],
+            [x + size, y + -size, z + -size],
+            [x + size, y + -size, z + size],
+            [x + size, y + size, z + size],
+            [x + size, y + size, z + -size],
+        ],
         normals: vec![right, right, right, right],
         indices: vec![0, 3, 1, 1, 3, 2],
     };
@@ -202,11 +273,11 @@ fn left_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     let left = Vec3::NEG_X.to_array();
     return MeshSide {
         vertices: vec![
-        [x + -size, y + -size, z + -size],
-        [x + -size, y + -size, z + size],
-        [x + -size, y + size, z + size],
-        [x + -size, y + size, z + -size],
-    ],
+            [x + -size, y + -size, z + -size],
+            [x + -size, y + -size, z + size],
+            [x + -size, y + size, z + size],
+            [x + -size, y + size, z + -size],
+        ],
         normals: vec![left, left, left, left],
         indices: vec![0, 1, 3, 1, 2, 3],
     };
@@ -222,7 +293,7 @@ fn back_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
             [x + size, y + -size, z + size],
         ],
         normals: vec![back, back, back, back],
-        indices: vec![0, 3, 1, 1, 3, 2]
+        indices: vec![0, 3, 1, 1, 3, 2],
     }
 }
 
@@ -230,11 +301,11 @@ fn front_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     let front = Vec3::NEG_Z.to_array();
     return MeshSide {
         vertices: vec![
-        [x + -size, y + -size, z + -size],
-        [x + -size, y + size, z + -size],
-        [x + size, y + size, z + -size],
-        [x + size, y + -size, z + -size],
-    ],
+            [x + -size, y + -size, z + -size],
+            [x + -size, y + size, z + -size],
+            [x + size, y + size, z + -size],
+            [x + size, y + -size, z + -size],
+        ],
         normals: vec![front, front, front, front],
         indices: vec![0, 1, 3, 1, 2, 3],
     };
@@ -263,22 +334,30 @@ fn create_cube_side(
     .with_inserted_indices(Indices::U32(indices))
 }
 
-fn create_cube_sides(x: f32, y: f32, z: f32, size: f32) -> [Mesh; 6] {
-    [
-        create_cube_side(top_side(x, y, z, size)),
-        create_cube_side(bottom_side(x, y, z, size)),
-        create_cube_side(left_side(x, y, z, size)),
-        create_cube_side(right_side(x, y, z, size)),
-        create_cube_side(front_side(x, y, z, size)),
-        create_cube_side(back_side(x, y, z, size)),
-    ]
+fn create_cube_sides(x: f32, y: f32, z: f32, size: f32, data: &BlockData) -> Vec<Mesh> {
+    let size = size / 2.0;
+    let mut sides = Vec::new();
+
+    match &data.visible_faces {
+        None => (),
+        Some(faces) =>
+            {
+                if faces.top { sides.push(create_cube_side(top_side(x, y, z, size))) }
+                if faces.bottom { sides.push(create_cube_side(bottom_side(x, y, z, size))) }
+                if faces.left { sides.push(create_cube_side(left_side(x, y, z, size))) }
+                if faces.right { sides.push(create_cube_side(right_side(x, y, z, size))) }
+                if faces.front { sides.push(create_cube_side(front_side(x, y, z, size))) }
+                if faces.back { sides.push(create_cube_side(back_side(x, y, z, size))) }
+            }    
+        }
+    sides
 }
 
 #[rustfmt::skip]
-fn create_cube_mesh(x: f32, y: f32, z: f32, size: f32) -> Mesh {
+fn create_cube_mesh(x: f32, y: f32, z: f32, size: f32) -> [Mesh;1] {
     let size = size / 2.0;
     // Keep the mesh data accessible in future frames to be able to mutate it in toggle_texture.
-    Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
+    [Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::MAIN_WORLD | RenderAssetUsages::RENDER_WORLD)
     .with_inserted_attribute(
         Mesh::ATTRIBUTE_POSITION,
         // Each array is an [x, y, z] coordinate in local space.
@@ -370,5 +449,5 @@ fn create_cube_mesh(x: f32, y: f32, z: f32, size: f32) -> Mesh {
         12,13,15 , 13,14,15, // left (-x)
         16,19,17 , 17,19,18, // back (+z)
         20,21,23 , 21,22,23, // forward (-z)
-    ]))
+    ]))]
 }
