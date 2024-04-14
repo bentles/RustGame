@@ -12,8 +12,8 @@ use bevy::render::{
 use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
 
-const CHUNKS_PER_AXIS: usize = 4; // chunk constants
-const SIZE: usize = 16;
+const CHUNKS_PER_AXIS: usize = 5; // chunk constants
+const SIZE: usize = 10;
 const X_SIZE: usize = SIZE;
 const Y_SIZE: usize = SIZE;
 const Z_SIZE: usize = SIZE;
@@ -23,7 +23,7 @@ const LAST_Y: usize = Y_SIZE - 1;
 const LAST_Z: usize = Z_SIZE - 1;
 
 const TOTAL_SIZE: usize = X_SIZE * Y_SIZE * Z_SIZE;
-const LAST_XYZ: usize =  TOTAL_SIZE - 1;
+const LAST_XYZ: usize = TOTAL_SIZE - 1;
 const PERLIN_SAMPLE_SIZE: f32 = 0.1;
 
 const BLOCK_SIZE: f32 = 1.0;
@@ -38,7 +38,6 @@ struct Index3D {
 // fn shouldRender() {
 //     // could be wrong but i'd imagine if the dot product of the camera facing direction and the normal of the side is negative then
 //     // then I should render the side otherwise it is not needed
-
 // }
 
 #[derive(Component, Clone)]
@@ -92,12 +91,10 @@ fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] {
 
 struct BlockData {
     visible_faces: Option<VisibleFaces>,
-    is_solid: bool, //I guess this can later be a block type
 }
 
 const EMPTY_BLOCK: BlockData = BlockData {
     visible_faces: None,
-    is_solid: false,
 };
 
 struct VisibleFaces {
@@ -109,29 +106,29 @@ struct VisibleFaces {
     back: bool,
 }
 
-fn is_solid(x: f64) -> bool {
-    x > 0.5
+fn is_air(x: f64) -> bool {
+    x < 0.3
 }
 
 fn block_data_from_perlin(chunk: [f64; TOTAL_SIZE]) -> [BlockData; TOTAL_SIZE] {
     let mut output = [EMPTY_BLOCK; TOTAL_SIZE];
 
-    for x in 0..(LAST_X) {
-        for y in 0..(LAST_Y) {
-            for z in 0..(LAST_Z) {
+    for z in 0..=LAST_Z {
+        for y in 0..=LAST_Y {
+            for x in 0..=LAST_X {
                 let i = to_1d(x, y, z);
                 let perlin_val = chunk[i];
-                if !is_solid(perlin_val) {
+                if is_air(perlin_val) {
                     continue;
                 }
 
                 let faces = VisibleFaces {
-                    right: (x == LAST_X) || !is_solid(index(chunk, x + 1, y, z)),
-                    left: (x == 0) || !is_solid(index(chunk, x - 1, y, z)),
-                    top: (y == LAST_Y) || !is_solid(index(chunk, x, y + 1, z)),
-                    bottom: (y == 0) || !is_solid(index(chunk, x, y - 1, z)),                    
-                    back: (z == LAST_Z) || !is_solid(index(chunk, x, y, z + 1)),
-                    front: (z == 0) || !is_solid(index(chunk, x, y, z - 1)),                    
+                    right: (x == LAST_X) || is_air(index(chunk, x + 1, y, z)),
+                    left: (x == 0) || is_air(index(chunk, x - 1, y, z)),
+                    top: (y == LAST_Y) || is_air(index(chunk, x, y + 1, z)),
+                    bottom: (y == 0) || is_air(index(chunk, x, y - 1, z)),
+                    back: (z == LAST_Z) || is_air(index(chunk, x, y, z + 1)),
+                    front: (z == 0) || is_air(index(chunk, x, y, z - 1)),
                 };
 
                 output[i].visible_faces = Some(faces);
@@ -166,19 +163,19 @@ fn setup(
                 );
                 let block_data = block_data_from_perlin(perlin_chunk);
 
-                for n in 0..(LAST_XYZ) {
+                for n in 0..=LAST_XYZ {
                     let Index3D {
                         x: x_block,
                         y: y_block,
                         z: z_block,
-                    } = index_reverse(n);                
+                    } = index_reverse(n);
 
                     let cube_sides = create_cube_sides(
                         x_block as f32 + x_chunk_offset as f32 * BLOCK_SIZE,
                         y_block as f32 + y_chunk_offset as f32 * BLOCK_SIZE,
                         z_block as f32 + z_chunk_offset as f32 * BLOCK_SIZE,
-                        BLOCK_SIZE, 
-                        &block_data[n]
+                        BLOCK_SIZE,
+                        &block_data[n],
                     );
 
                     for side in cube_sides {
@@ -198,7 +195,6 @@ fn setup(
                             chunk.clone(),
                         ));
                     }
-                    
                 }
             }
         }
@@ -340,16 +336,27 @@ fn create_cube_sides(x: f32, y: f32, z: f32, size: f32, data: &BlockData) -> Vec
 
     match &data.visible_faces {
         None => (),
-        Some(faces) =>
-            {
-                if faces.top { sides.push(create_cube_side(top_side(x, y, z, size))) }
-                if faces.bottom { sides.push(create_cube_side(bottom_side(x, y, z, size))) }
-                if faces.left { sides.push(create_cube_side(left_side(x, y, z, size))) }
-                if faces.right { sides.push(create_cube_side(right_side(x, y, z, size))) }
-                if faces.front { sides.push(create_cube_side(front_side(x, y, z, size))) }
-                if faces.back { sides.push(create_cube_side(back_side(x, y, z, size))) }
-            }    
+        Some(faces) => {
+            if faces.top {
+                sides.push(create_cube_side(top_side(x, y, z, size)))
+            }
+            if faces.bottom {
+                sides.push(create_cube_side(bottom_side(x, y, z, size)))
+            }
+            if faces.left {
+                sides.push(create_cube_side(left_side(x, y, z, size)))
+            }
+            if faces.right {
+                sides.push(create_cube_side(right_side(x, y, z, size)))
+            }
+            if faces.front {
+                sides.push(create_cube_side(front_side(x, y, z, size)))
+            }
+            if faces.back {
+                sides.push(create_cube_side(back_side(x, y, z, size)))
+            }
         }
+    }
     sides
 }
 
