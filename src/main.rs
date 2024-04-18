@@ -12,8 +12,8 @@ use bevy::render::{
 use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
 
-const CHUNKS_PER_AXIS: usize = 15; // chunk constants
-const SIZE: usize = 10;
+const CHUNKS_PER_AXIS: usize = 10; // chunk constants
+const SIZE: usize = 32;
 const X_SIZE: usize = SIZE;
 const Y_SIZE: usize = SIZE;
 const Z_SIZE: usize = SIZE;
@@ -24,7 +24,7 @@ const LAST_Z: usize = Z_SIZE - 1;
 
 const TOTAL_SIZE: usize = X_SIZE * Y_SIZE * Z_SIZE;
 const LAST_XYZ: usize = TOTAL_SIZE - 1;
-const PERLIN_SAMPLE_SIZE: f32 = 0.1;
+const PERLIN_SAMPLE_SIZE: f32 = 0.09;
 
 const BLOCK_SIZE: f32 = 1.0;
 
@@ -43,11 +43,15 @@ struct Index3D {
 #[derive(Component, Clone)]
 struct ChunkIndex(Index3D);
 
+#[derive(Resource)]
+struct PastCameraDirection(Direction3d);
+
 fn main() {
     App::new()
+        .insert_resource(PastCameraDirection(Direction3d::X))
         .add_plugins(DefaultPlugins)
         .add_systems(Startup, setup)
-        .add_systems(Update, hideNonCameraFaces)
+        .add_systems(Update, cameraDirectionChanged)
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_plugins(PlayerPlugin)
         .run();
@@ -81,11 +85,19 @@ fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] {
     let perlin = Perlin::new(1234);
     core::array::from_fn(|n| {
         let Index3D { x, y, z } = index_reverse(n);
-        perlin.get([
+        let a = perlin.get([
             ((x as f32) * PERLIN_SAMPLE_SIZE + x_offset) as f64,
             ((y as f32) * PERLIN_SAMPLE_SIZE + y_offset) as f64,
             ((z as f32) * PERLIN_SAMPLE_SIZE + z_offset) as f64,
-        ])
+        ]);
+
+        let b = perlin.get([
+            ((x as f32) * 0.005 + x_offset) as f64,
+            ((y as f32) * 0.005  + y_offset) as f64,
+            ((z as f32) * 0.005  + z_offset) as f64,
+        ]);
+
+        a
     })
 }
 
@@ -107,7 +119,7 @@ struct VisibleFaces {
 }
 
 fn is_air(x: f64) -> bool {
-    x < 0.6
+    x < 0.5
 }
 
 fn block_data_from_perlin(chunk: [f64; TOTAL_SIZE]) -> [BlockData; TOTAL_SIZE] {
@@ -143,6 +155,8 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
+    commands.spawn()
+
     for chunk_x in 0..CHUNKS_PER_AXIS {
         for chunk_y in 0..CHUNKS_PER_AXIS {
             for chunk_z in 0..CHUNKS_PER_AXIS {
@@ -319,10 +333,40 @@ fn front_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     };
 }
 
-fn hideNonCameraFaces(query: Query<(&bevy_flycam::FlyCam, &mut Transform)>) {
-    for (_, transform) in &query {
+
+#[derive(Event)]
+struct CameraDirectionChangeEvent;
+
+fn cameraDirectionChanged(cameraQuery: Query<(&bevy_flycam::FlyCam, &mut Transform)>, 
+                          mut pastCamDir: ResMut<PastCameraDirection>,
+                          mut ev_levelup: EventWriter<CameraDirectionChangeEvent>
+) {
+    for (_, transform) in &cameraQuery {
+        let wasFacing = pastCamDir.0;
         let facing: Direction3d = transform.forward();
-        //println!("{}", facing.dot(Vec3::X));
+        pastCamDir.0 = facing;
+
+        //matrices???
+        let x = Vec3 { x: 1.0, y: 0.0, z: 0.0};
+        let r1 = wasFacing.dot(x);
+        let r2 = facing.dot(x);
+        let x_changed = r1 * r2 < 0.0;
+
+        let y = Vec3 { x: 0.0, y: 1.0, z: 0.0};
+        let u1 = wasFacing.dot(x);
+        let u2 = facing.dot(x);
+        let y_changed = u1 * u2 < 0.0;
+
+        let z = Vec3 { x: 0.0, y: 0.0, z: 1.0};
+        let f1 = wasFacing.dot(x);
+        let f2 = facing.dot(x);
+        let z_changed = f1 * f2 < 0.0;
+
+        if (x_changed || y_changed || z_changed) {
+            ev_levelup.send(CameraDirectionChangeEvent);
+        }
+
+
     }
 }
 
