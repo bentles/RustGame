@@ -47,11 +47,13 @@ struct ChunkIndex(Index3D);
 struct PastCameraDirection(Direction3d);
 
 fn main() {
-    App::new()
-        .insert_resource(PastCameraDirection(Direction3d::X))
+    App::new()      
         .add_plugins(DefaultPlugins)
+        .insert_resource(PastCameraDirection(Direction3d::X))
+        .add_event::<CameraDirectionChangeEvent>()
         .add_systems(Startup, setup)
-        .add_systems(Update, cameraDirectionChanged)
+        .add_systems(Update, detect_camera_direction_changed)
+        .add_systems(Update, on_camera_direction_change)
         .insert_resource(ClearColor(Color::rgb(0.9, 0.9, 0.9)))
         .add_plugins(PlayerPlugin)
         .run();
@@ -155,8 +157,6 @@ fn setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    commands.spawn()
-
     for chunk_x in 0..CHUNKS_PER_AXIS {
         for chunk_y in 0..CHUNKS_PER_AXIS {
             for chunk_z in 0..CHUNKS_PER_AXIS {
@@ -337,37 +337,45 @@ fn front_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
 #[derive(Event)]
 struct CameraDirectionChangeEvent;
 
-fn cameraDirectionChanged(cameraQuery: Query<(&bevy_flycam::FlyCam, &mut Transform)>, 
-                          mut pastCamDir: ResMut<PastCameraDirection>,
+fn detect_camera_direction_changed(camera_query: Query<(&bevy_flycam::FlyCam, &mut Transform)>, 
+                          mut past_cam_dir: ResMut<PastCameraDirection>,
                           mut ev_levelup: EventWriter<CameraDirectionChangeEvent>
 ) {
-    for (_, transform) in &cameraQuery {
-        let wasFacing = pastCamDir.0;
+    for (_, transform) in &camera_query {
+        let was_facing = past_cam_dir.0;
         let facing: Direction3d = transform.forward();
-        pastCamDir.0 = facing;
+        past_cam_dir.0 = facing;
 
         //matrices???
         let x = Vec3 { x: 1.0, y: 0.0, z: 0.0};
-        let r1 = wasFacing.dot(x);
+        let r1 = was_facing.dot(x);
         let r2 = facing.dot(x);
         let x_changed = r1 * r2 < 0.0;
 
         let y = Vec3 { x: 0.0, y: 1.0, z: 0.0};
-        let u1 = wasFacing.dot(x);
-        let u2 = facing.dot(x);
+        let u1 = was_facing.dot(y);
+        let u2 = facing.dot(y);
         let y_changed = u1 * u2 < 0.0;
 
         let z = Vec3 { x: 0.0, y: 0.0, z: 1.0};
-        let f1 = wasFacing.dot(x);
-        let f2 = facing.dot(x);
+        let f1 = was_facing.dot(z);
+        let f2 = facing.dot(z);
         let z_changed = f1 * f2 < 0.0;
 
-        if (x_changed || y_changed || z_changed) {
+        if x_changed || y_changed || z_changed {
             ev_levelup.send(CameraDirectionChangeEvent);
         }
-
-
     }
+}
+
+
+fn on_camera_direction_change(
+    mut ev: EventReader<CameraDirectionChangeEvent>,
+) {
+    for _ in ev.read() {
+        println!("things have changed!");
+    }
+   
 }
 
 fn create_cube_side(
@@ -436,5 +444,4 @@ fn create_chunk_sides(x_chunk_offset: f32, y_chunk_offset: f32, z_chunk_offset: 
     ]
 
     
-
 }
