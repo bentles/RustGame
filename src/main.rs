@@ -12,7 +12,7 @@ use bevy::render::{
 use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
 
-const CHUNKS_PER_AXIS: usize = 10; // chunk constants
+const CHUNKS_PER_AXIS: usize = 5; // chunk constants
 const SIZE: usize = 32;
 const X_SIZE: usize = SIZE;
 const Y_SIZE: usize = SIZE;
@@ -42,6 +42,9 @@ struct Index3D {
 
 #[derive(Component, Clone)]
 struct ChunkIndex(Index3D);
+
+#[derive(Component, Clone)]
+struct MeshFacingDirection(Direction3d);
 
 #[derive(Resource)]
 struct PastCameraDirection(Direction3d);
@@ -187,8 +190,9 @@ fn setup(
                     block_data,
                 );
 
-                for side in cube_sides {
+                for (side, facing) in cube_sides {
                     // Create and save a handle to the mesh.
+
                     let side_mesh_handle: Handle<Mesh> = meshes.add(side);
                     //let clr = n as f32 / (LAST_XYZ as f32);
                     commands.spawn((
@@ -203,6 +207,7 @@ fn setup(
                             ..default()
                         },
                         chunk.clone(),
+                        MeshFacingDirection(facing)
                     ));
                 }
                 
@@ -371,9 +376,21 @@ fn detect_camera_direction_changed(camera_query: Query<(&bevy_flycam::FlyCam, &m
 
 fn on_camera_direction_change(
     mut ev: EventReader<CameraDirectionChangeEvent>,
+    camera_query: Query<(&bevy_flycam::FlyCam, &mut Transform)>,
+    mut chunks_query: Query<(&mut Visibility, &MeshFacingDirection)>,
 ) {
     for _ in ev.read() {
-        println!("things have changed!");
+        for (_, transform) in &camera_query {
+            let facing: Direction3d = transform.forward();
+            for (mut visibility, mesh_facing) in chunks_query.iter_mut() {
+                if mesh_facing.0.dot(facing.xyz()) <= 0.0 {
+                    *visibility = Visibility::Visible;
+                }
+                else {
+                    *visibility = Visibility::Hidden;
+                }
+            }
+        }
     }
    
 }
@@ -394,7 +411,7 @@ fn create_cube_side(
     .with_inserted_indices(Indices::U32(indices))
 }
 
-fn create_chunk_sides(x_chunk_offset: f32, y_chunk_offset: f32, z_chunk_offset: f32, size: f32, data: [BlockData;TOTAL_SIZE]) -> Vec<Mesh> {
+fn create_chunk_sides(x_chunk_offset: f32, y_chunk_offset: f32, z_chunk_offset: f32, size: f32, data: [BlockData;TOTAL_SIZE]) -> Vec<(Mesh, Direction3d)> {
     let size = size / 2.0;
 
     let mut up: MeshData = MeshData::default();
@@ -435,12 +452,12 @@ fn create_chunk_sides(x_chunk_offset: f32, y_chunk_offset: f32, z_chunk_offset: 
         }
     }
     vec! [
-        create_cube_side(up),
-        create_cube_side(down),
-        create_cube_side(left),
-        create_cube_side(right),
-        create_cube_side(front),
-        create_cube_side(back),
+        (create_cube_side(up), Direction3d::Y),
+        (create_cube_side(down), Direction3d::NEG_Y),
+        (create_cube_side(left),Direction3d::NEG_X),
+        (create_cube_side(right),Direction3d::X),
+        (create_cube_side(front),Direction3d::NEG_Z),
+        (create_cube_side(back),Direction3d::Z),
     ]
 
     
