@@ -1,6 +1,9 @@
 use bevy::{ecs::component::Component, math::primitives::Direction3d};
 
-pub const CHUNKS_PER_AXIS: usize = 15; // chunk constants
+pub const CHUNKS_X: usize = 15; // chunk constants
+pub const CHUNKS_Y: usize = 7; // chunk constants
+pub const CHUNKS_Z: usize = 15; // chunk constants
+
 pub const SIZE: usize = 32;
 pub const X_SIZE: usize = SIZE;
 pub const Y_SIZE: usize = SIZE;

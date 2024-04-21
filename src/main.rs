@@ -5,23 +5,23 @@ mod world_gen;
 
 
 fn main() {
-    App::new()      
+    App::new()
         .add_plugins(DefaultPlugins)
         .add_plugins(PlayerPlugin)
         .add_plugins(WorldGenPlugin)
         
-        //diagnostics              
+        //diagnostics
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin)
 
-        .add_systems(Startup, setup)              
-        .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.2)))      
+        .add_systems(Startup, setup)
+        .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.2)))
         .run();
 }
 
 
 fn setup(
-    mut commands: Commands,    
+    mut commands: Commands,
 ) {
     commands.spawn(
         TextBundle::from_section(

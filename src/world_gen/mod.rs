@@ -110,22 +110,42 @@ pub fn front_side(x: f32, y: f32, z: f32, size: f32) -> CubeSide {
     };
 }
 
-pub fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] {
+pub fn perlin_chunk(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] {
     let perlin = Perlin::new(1234);
+
+    let x_p_offset = x_offset * PERLIN_SAMPLE_SIZE;
+    let y_p_offset = y_offset * PERLIN_SAMPLE_SIZE;
+    let z_p_offset = z_offset * PERLIN_SAMPLE_SIZE;
     core::array::from_fn(|n| {
         let Index3D { x, y, z } = index_reverse(n);
         let a = perlin.get([
-            ((x as f32) * PERLIN_SAMPLE_SIZE + x_offset) as f64,
-            ((y as f32) * PERLIN_SAMPLE_SIZE + y_offset) as f64,
-            ((z as f32) * PERLIN_SAMPLE_SIZE + z_offset) as f64,
+            ((x as f32) * PERLIN_SAMPLE_SIZE + x_p_offset) as f64,
+            ((y as f32) * PERLIN_SAMPLE_SIZE + y_p_offset) as f64,
+            ((z as f32) * PERLIN_SAMPLE_SIZE + z_p_offset) as f64,
         ]);
 
-        let b = perlin.get([
-            ((x as f32) * 0.005 + x_offset) as f64,
-            ((y as f32) * 0.005 + y_offset) as f64,
-            ((z as f32) * 0.005 + z_offset) as f64,
+        // noise values should should range from [-1.0 to 1.0]
+        let perlin_height = perlin.get([
+            (((x as f32) + x_offset) * 0.005) as f64,
+            (((z as f32) + z_offset) * 0.005) as f64,
         ]);
-        a
+                                           
+        let total_y_blocks = CHUNKS_Y * Y_SIZE;
+
+        let highest_block = ((perlin_height as f32 + 1.0) / 2.0) * total_y_blocks as f32;
+        //println!("{}", highest_block);
+        let h = if (y as f32) + y_offset < highest_block {
+            a
+        } else {
+            -1.0
+        };
+
+        let b = perlin.get([
+            ((x as f32) * 0.005 + x_p_offset) as f64,
+            ((y as f32) * 0.005 + y_p_offset) as f64,
+            ((z as f32) * 0.005 + z_p_offset) as f64,
+        ]);
+        h
     })
 }
 
@@ -147,7 +167,7 @@ struct VisibleFaces {
 }
 
 fn is_air(x: f64) -> bool {
-    x < 0.5
+    x < 0.0
 }
 
 fn block_data_from_perlin(chunk: [f64; TOTAL_SIZE]) -> [BlockData; TOTAL_SIZE] {
@@ -255,9 +275,9 @@ pub fn mesh_setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for chunk_x in 0..CHUNKS_PER_AXIS {
-        for chunk_y in 0..CHUNKS_PER_AXIS {
-            for chunk_z in 0..CHUNKS_PER_AXIS {
+    for chunk_x in 0..CHUNKS_X {
+        for chunk_y in 0..CHUNKS_Y {
+            for chunk_z in 0..CHUNKS_Z {
                 let chunk = ChunkIndex(Index3D {
                     x: chunk_x,
                     y: chunk_y,
@@ -268,11 +288,7 @@ pub fn mesh_setup(
                 let y_chunk_offset = (chunk.0.y * Y_SIZE) as f32;
                 let z_chunk_offset = (chunk.0.z * Z_SIZE) as f32;
                 // Import the custom texture
-                let perlin_chunk = perlin(
-                    x_chunk_offset * PERLIN_SAMPLE_SIZE,
-                    y_chunk_offset * PERLIN_SAMPLE_SIZE,
-                    z_chunk_offset * PERLIN_SAMPLE_SIZE,
-                );
+                let perlin_chunk = perlin_chunk(x_chunk_offset, y_chunk_offset, z_chunk_offset);
                 let block_data = block_data_from_perlin(perlin_chunk);
 
                 //let (x_block, y_block, z_block) = to_3d(n);
