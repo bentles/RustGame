@@ -8,7 +8,7 @@ use prelude::*;
 use util::*;
 
 
-pub fn add_side(mesh: &mut MeshData, side: MeshSide) {
+pub fn add_cube_side_to_mesh(mesh: &mut MeshData, side: CubeSide) {
     //TODO: totally know what im doing yep
     let length = mesh.vertices.len();
     mesh.vertices.extend_from_slice(&side.vertices);
@@ -17,9 +17,9 @@ pub fn add_side(mesh: &mut MeshData, side: MeshSide) {
     mesh.indices.extend_from_slice(&next_indices)
 }
 
-pub fn top_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+pub fn top_side(x: f32, y: f32, z: f32, size: f32) -> CubeSide {
     let up = Vec3::Y.to_array();
-    return MeshSide {
+    return CubeSide {
         vertices: [
             [x + -size, y + size, z + -size],
             [x + size, y + size, z + -size],
@@ -31,9 +31,9 @@ pub fn top_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     };
 }
 
-pub fn bottom_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+pub fn bottom_side(x: f32, y: f32, z: f32, size: f32) -> CubeSide {
     let down = Vec3::NEG_Y.to_array();
-    return MeshSide {
+    return CubeSide {
         vertices: [
             [x + -size, y + -size, z + -size],
             [x + size, y + -size, z + -size],
@@ -45,9 +45,9 @@ pub fn bottom_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     };
 }
 
-pub fn right_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+pub fn right_side(x: f32, y: f32, z: f32, size: f32) -> CubeSide {
     let right = Vec3::X.to_array();
-    return MeshSide {
+    return CubeSide {
         vertices: [
             [x + size, y + -size, z + -size],
             [x + size, y + -size, z + size],
@@ -59,9 +59,9 @@ pub fn right_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     };
 }
 
-pub fn left_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+pub fn left_side(x: f32, y: f32, z: f32, size: f32) -> CubeSide {
     let left = Vec3::NEG_X.to_array();
-    return MeshSide {
+    return CubeSide {
         vertices: [
             [x + -size, y + -size, z + -size],
             [x + -size, y + -size, z + size],
@@ -73,9 +73,9 @@ pub fn left_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     };
 }
 
-pub fn back_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+pub fn back_side(x: f32, y: f32, z: f32, size: f32) -> CubeSide {
     let back = Vec3::Z.to_array();
-    MeshSide {
+    CubeSide {
         vertices: [
             [x + -size, y + -size, z + size],
             [x + -size, y + size, z + size],
@@ -87,9 +87,9 @@ pub fn back_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
     }
 }
 
-pub fn front_side(x: f32, y: f32, z: f32, size: f32) -> MeshSide {
+pub fn front_side(x: f32, y: f32, z: f32, size: f32) -> CubeSide {
     let front = Vec3::NEG_Z.to_array();
-    return MeshSide {
+    return CubeSide {
         vertices: [
             [x + -size, y + -size, z + -size],
             [x + -size, y + size, z + -size],
@@ -170,7 +170,7 @@ fn block_data_from_perlin(chunk: [f64; TOTAL_SIZE]) -> [BlockData; TOTAL_SIZE] {
     output
 }
 
-fn create_cube_side(
+fn create_chunk_side(
     MeshData {
         vertices,
         normals,
@@ -206,33 +206,33 @@ fn create_chunk_sides(x_chunk_offset: f32, y_chunk_offset: f32, z_chunk_offset: 
             None => (),
             Some(faces) => {
                 if faces.top {
-                    add_side(&mut up, top_side(x, y, z, size));
+                    add_cube_side_to_mesh(&mut up, top_side(x, y, z, size));
                 }
                 if faces.bottom {
-                    add_side(&mut down, bottom_side(x, y, z, size));
+                    add_cube_side_to_mesh(&mut down, bottom_side(x, y, z, size));
                 }
                 if faces.left {
-                    add_side(&mut left, left_side(x, y, z, size));
+                    add_cube_side_to_mesh(&mut left, left_side(x, y, z, size));
                 }
                 if faces.right {
-                    add_side(&mut right, right_side(x, y, z, size));
+                    add_cube_side_to_mesh(&mut right, right_side(x, y, z, size));
                 }
                 if faces.front {
-                    add_side(&mut front, front_side(x, y, z, size));
+                    add_cube_side_to_mesh(&mut front, front_side(x, y, z, size));
                 }
                 if faces.back {
-                    add_side(&mut back, back_side(x, y, z, size));
+                    add_cube_side_to_mesh(&mut back, back_side(x, y, z, size));
                 }
             }
         }
     }
     vec! [
-        (create_cube_side(up), Direction3d::Y),
-        (create_cube_side(down), Direction3d::NEG_Y),
-        (create_cube_side(left),Direction3d::NEG_X),
-        (create_cube_side(right),Direction3d::X),
-        (create_cube_side(front),Direction3d::NEG_Z),
-        (create_cube_side(back),Direction3d::Z),
+        (create_chunk_side(up), Direction3d::Y),
+        (create_chunk_side(down), Direction3d::NEG_Y),
+        (create_chunk_side(left),Direction3d::NEG_X),
+        (create_chunk_side(right),Direction3d::X),
+        (create_chunk_side(front),Direction3d::NEG_Z),
+        (create_chunk_side(back),Direction3d::Z),
     ]
 
     
@@ -244,9 +244,6 @@ pub fn mesh_setup(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    // create a simple Perf UI with default settings
-    // and all entries provided by the crate:
-
     for chunk_x in 0..CHUNKS_PER_AXIS {
         for chunk_y in 0..CHUNKS_PER_AXIS {
             for chunk_z in 0..CHUNKS_PER_AXIS {

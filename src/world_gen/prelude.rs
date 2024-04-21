@@ -23,7 +23,7 @@ pub struct Index3D {
     pub z: usize,
 }
 
-pub struct MeshSide {
+pub struct CubeSide {
     pub vertices: [[f32; 3]; 4],
     pub normals: [[f32; 3]; 4],
     pub indices: [u32; 6],
