@@ -1,14 +1,21 @@
-use bevy::{app::{App, Plugin, Startup, Update}, asset::{Assets, Handle}, ecs::system::{Commands, ResMut}, math::{primitives::Direction3d, Vec3}, pbr::{PbrBundle, StandardMaterial}, prelude::default, render::{color::Color, mesh::{Indices, Mesh, PrimitiveTopology}, render_asset::RenderAssetUsages}};
-
-mod util;
-mod prelude;
+use bevy::{
+    prelude::*,
+    render::{
+        mesh::{Indices, PrimitiveTopology},
+        render_asset::RenderAssetUsages,
+    },
+};
 pub mod camera;
+mod prelude;
+mod util;
 use noise::{NoiseFn, Perlin};
 use prelude::*;
 use util::*;
 
-use self::camera::{detect_camera_direction_changed, on_camera_direction_change, CameraDirectionChangeEvent, PastCameraDirection};
-
+use self::camera::{
+    detect_camera_direction_changed, on_camera_direction_change, CameraDirectionChangeEvent,
+    PastCameraDirection,
+};
 
 pub fn add_cube_side_to_mesh(mesh: &mut MeshData, side: CubeSide) {
     //TODO: totally know what im doing yep
@@ -115,10 +122,9 @@ pub fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] 
 
         let b = perlin.get([
             ((x as f32) * 0.005 + x_offset) as f64,
-            ((y as f32) * 0.005  + y_offset) as f64,
-            ((z as f32) * 0.005  + z_offset) as f64,
+            ((y as f32) * 0.005 + y_offset) as f64,
+            ((z as f32) * 0.005 + z_offset) as f64,
         ]);
-
         a
     })
 }
@@ -188,7 +194,13 @@ fn create_chunk_side(
     .with_inserted_indices(Indices::U32(indices))
 }
 
-fn create_chunk_sides(x_chunk_offset: f32, y_chunk_offset: f32, z_chunk_offset: f32, size: f32, data: [BlockData;TOTAL_SIZE]) -> Vec<(Mesh, Direction3d)> {
+fn create_chunk_sides(
+    x_chunk_offset: f32,
+    y_chunk_offset: f32,
+    z_chunk_offset: f32,
+    size: f32,
+    data: [BlockData; TOTAL_SIZE],
+) -> Vec<(Mesh, Direction3d)> {
     let size = size / 2.0;
 
     let mut up: MeshData = MeshData::default();
@@ -228,18 +240,15 @@ fn create_chunk_sides(x_chunk_offset: f32, y_chunk_offset: f32, z_chunk_offset: 
             }
         }
     }
-    vec! [
+    vec![
         (create_chunk_side(up), Direction3d::Y),
         (create_chunk_side(down), Direction3d::NEG_Y),
-        (create_chunk_side(left),Direction3d::NEG_X),
-        (create_chunk_side(right),Direction3d::X),
-        (create_chunk_side(front),Direction3d::NEG_Z),
-        (create_chunk_side(back),Direction3d::Z),
+        (create_chunk_side(left), Direction3d::NEG_X),
+        (create_chunk_side(right), Direction3d::X),
+        (create_chunk_side(front), Direction3d::NEG_Z),
+        (create_chunk_side(back), Direction3d::Z),
     ]
-
-    
 }
-
 
 pub fn mesh_setup(
     mut commands: Commands,
@@ -264,7 +273,7 @@ pub fn mesh_setup(
                     y_chunk_offset * PERLIN_SAMPLE_SIZE,
                     z_chunk_offset * PERLIN_SAMPLE_SIZE,
                 );
-                let block_data = block_data_from_perlin(perlin_chunk);                
+                let block_data = block_data_from_perlin(perlin_chunk);
 
                 //let (x_block, y_block, z_block) = to_3d(n);
 
@@ -287,30 +296,32 @@ pub fn mesh_setup(
                             material: materials.add(StandardMaterial {
                                 //base_color_texture: Some(custom_texture_handle),
                                 //Color::rgb(clr, clr, clr)
-                                base_color:  if chunk_y % 2 == 0 { Color::RED } else { Color::BLUE },
+                                base_color: if chunk_y % 2 == 0 {
+                                    Color::RED
+                                } else {
+                                    Color::BLUE
+                                },
                                 ..default()
                             }),
                             ..default()
                         },
                         chunk.clone(),
-                        MeshFacingDirection(facing)
+                        MeshFacingDirection(facing),
                     ));
                 }
-                
             }
         }
-    }    
+    }
 }
 
 pub struct WorldGenPlugin;
 
 impl Plugin for WorldGenPlugin {
     fn build(&self, app: &mut App) {
-        app
-        .insert_resource(PastCameraDirection(Direction3d::X))
-        .add_event::<CameraDirectionChangeEvent>()
-        .add_systems(Startup, mesh_setup)
-        .add_systems(Update, detect_camera_direction_changed)
-        .add_systems(Update, on_camera_direction_change);
+        app.insert_resource(PastCameraDirection(Direction3d::X))
+            .add_event::<CameraDirectionChangeEvent>()
+            .add_systems(Startup, mesh_setup)
+            .add_systems(Update, detect_camera_direction_changed)
+            .add_systems(Update, on_camera_direction_change);
     }
 }
