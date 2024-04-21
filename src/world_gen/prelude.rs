@@ -1,3 +1,5 @@
+use bevy::{ecs::component::Component, math::primitives::Direction3d};
+
 pub const CHUNKS_PER_AXIS: usize = 15; // chunk constants
 pub const SIZE: usize = 32;
 pub const X_SIZE: usize = SIZE;
@@ -20,3 +22,22 @@ pub struct Index3D {
     pub y: usize,
     pub z: usize,
 }
+
+pub struct MeshSide {
+    pub vertices: [[f32; 3]; 4],
+    pub normals: [[f32; 3]; 4],
+    pub indices: [u32; 6],
+}
+
+#[derive(Default)]
+pub struct MeshData {
+    pub vertices: Vec<[f32; 3]>,
+    pub normals: Vec<[f32; 3]>,
+    pub indices: Vec<u32>,
+}
+
+#[derive(Component, Clone)]
+pub struct ChunkIndex(pub Index3D);
+
+#[derive(Component, Clone)]
+pub struct MeshFacingDirection(pub Direction3d);

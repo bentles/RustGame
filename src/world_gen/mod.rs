@@ -1,29 +1,11 @@
-use bevy::{asset::{Assets, Handle}, ecs::{component::Component, system::{Commands, ResMut}}, math::{primitives::Direction3d, Vec3}, pbr::{PbrBundle, StandardMaterial}, prelude::default, render::{color::Color, mesh::{Indices, Mesh, PrimitiveTopology}, render_asset::RenderAssetUsages}};
+use bevy::{asset::{Assets, Handle}, ecs::system::{Commands, ResMut}, math::{primitives::Direction3d, Vec3}, pbr::{PbrBundle, StandardMaterial}, prelude::default, render::{color::Color, mesh::{Indices, Mesh, PrimitiveTopology}, render_asset::RenderAssetUsages}};
 
 mod util;
 mod prelude;
+pub mod camera;
 use noise::{NoiseFn, Perlin};
 use prelude::*;
 use util::*;
-
-pub struct MeshSide {
-    pub vertices: [[f32; 3]; 4],
-    pub normals: [[f32; 3]; 4],
-    pub indices: [u32; 6],
-}
-
-#[derive(Default)]
-pub struct MeshData {
-    pub vertices: Vec<[f32; 3]>,
-    pub normals: Vec<[f32; 3]>,
-    pub indices: Vec<u32>,
-}
-
-#[derive(Component, Clone)]
-pub struct ChunkIndex(Index3D);
-
-#[derive(Component, Clone)]
-pub struct MeshFacingDirection(pub Direction3d);
 
 
 pub fn add_side(mesh: &mut MeshData, side: MeshSide) {
@@ -138,7 +120,6 @@ pub fn perlin(x_offset: f32, y_offset: f32, z_offset: f32) -> [f64; TOTAL_SIZE] 
         a
     })
 }
-
 
 struct BlockData {
     visible_faces: Option<VisibleFaces>,
