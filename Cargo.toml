@@ -9,6 +9,7 @@ edition = "2021"
 bevy = { version = "0.13.1",  features = ["dynamic_linking"] }
 noise = "0.9.0"
 bevy_flycam = "*"
+iyes_perf_ui = "0.2.3"
 
 # Enable a small amount of optimization in debug mode
 [profile.dev]
