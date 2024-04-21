@@ -1,9 +1,6 @@
-use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
 use bevy_flycam::PlayerPlugin;
-use iyes_perf_ui::PerfUiCompleteBundle;
-use noise::{NoiseFn, Perlin};
-use world_gen::{camera::{detect_camera_direction_changed, on_camera_direction_change, CameraDirectionChangeEvent, PastCameraDirection}, WorldGenPlugin};
+use world_gen::WorldGenPlugin;
 mod world_gen;
 
 
