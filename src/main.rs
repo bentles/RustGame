@@ -1,10 +1,9 @@
 use bevy::diagnostic::FrameTimeDiagnosticsPlugin;
 use bevy::prelude::*;
-use bevy::render::camera;
 use bevy_flycam::PlayerPlugin;
 use iyes_perf_ui::PerfUiCompleteBundle;
 use noise::{NoiseFn, Perlin};
-use world_gen::camera::{detect_camera_direction_changed, on_camera_direction_change, CameraDirectionChangeEvent, PastCameraDirection};
+use world_gen::{camera::{detect_camera_direction_changed, on_camera_direction_change, CameraDirectionChangeEvent, PastCameraDirection}, WorldGenPlugin};
 mod world_gen;
 
 
@@ -12,19 +11,14 @@ fn main() {
     App::new()      
         .add_plugins(DefaultPlugins)
         .add_plugins(PlayerPlugin)
+        .add_plugins(WorldGenPlugin)
         
         //diagnostics              
         .add_plugins(bevy::diagnostic::FrameTimeDiagnosticsPlugin)
         .add_plugins(bevy::diagnostic::EntityCountDiagnosticsPlugin)
 
-        .insert_resource(PastCameraDirection(Direction3d::X))
-        .add_event::<CameraDirectionChangeEvent>()
-        .add_systems(Startup, setup)
-        .add_systems(Startup, world_gen::mesh_setup)
-        .add_systems(Update, detect_camera_direction_changed)
-        .add_systems(Update, on_camera_direction_change)
-        .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.2)))
-      
+        .add_systems(Startup, setup)              
+        .insert_resource(ClearColor(Color::rgb(0.2, 0.2, 0.2)))      
         .run();
 }
 

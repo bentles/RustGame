@@ -1,4 +1,4 @@
-use bevy::{asset::{Assets, Handle}, ecs::system::{Commands, ResMut}, math::{primitives::Direction3d, Vec3}, pbr::{PbrBundle, StandardMaterial}, prelude::default, render::{color::Color, mesh::{Indices, Mesh, PrimitiveTopology}, render_asset::RenderAssetUsages}};
+use bevy::{app::{App, Plugin, Startup, Update}, asset::{Assets, Handle}, ecs::system::{Commands, ResMut}, math::{primitives::Direction3d, Vec3}, pbr::{PbrBundle, StandardMaterial}, prelude::default, render::{color::Color, mesh::{Indices, Mesh, PrimitiveTopology}, render_asset::RenderAssetUsages}};
 
 mod util;
 mod prelude;
@@ -6,6 +6,8 @@ pub mod camera;
 use noise::{NoiseFn, Perlin};
 use prelude::*;
 use util::*;
+
+use self::camera::{detect_camera_direction_changed, on_camera_direction_change, CameraDirectionChangeEvent, PastCameraDirection};
 
 
 pub fn add_cube_side_to_mesh(mesh: &mut MeshData, side: CubeSide) {
@@ -297,7 +299,18 @@ pub fn mesh_setup(
                 
             }
         }
-    }
+    }    
+}
 
-    
+pub struct WorldGenPlugin;
+
+impl Plugin for WorldGenPlugin {
+    fn build(&self, app: &mut App) {
+        app
+        .insert_resource(PastCameraDirection(Direction3d::X))
+        .add_event::<CameraDirectionChangeEvent>()
+        .add_systems(Startup, mesh_setup)
+        .add_systems(Update, detect_camera_direction_changed)
+        .add_systems(Update, on_camera_direction_change);
+    }
 }
