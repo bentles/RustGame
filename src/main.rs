@@ -12,7 +12,7 @@ use bevy::render::{
 use bevy_flycam::PlayerPlugin;
 use noise::{NoiseFn, Perlin};
 
-const CHUNKS_PER_AXIS: usize = 5; // chunk constants
+const CHUNKS_PER_AXIS: usize = 15; // chunk constants
 const SIZE: usize = 32;
 const X_SIZE: usize = SIZE;
 const Y_SIZE: usize = SIZE;
@@ -35,10 +35,6 @@ struct Index3D {
     z: usize,
 }
 
-// fn shouldRender() {
-//     // could be wrong but i'd imagine if the dot product of the camera facing direction and the normal of the side is negative then
-//     // then I should render the side otherwise it is not needed
-// }
 
 #[derive(Component, Clone)]
 struct ChunkIndex(Index3D);
